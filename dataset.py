@@ -14,8 +14,7 @@ import matplotlib.pyplot as plt
 
 # version pour image en couleur
 
-image = Image.open('surveyed_map.jpg')
-img = np.array(image)
+
 
 
 def rotateImage(img, angle, pivot):
@@ -54,12 +53,22 @@ def cardata_to_mapsurvey(xabs,yabs,angle,img):
     survey_image_croped = point_angle_to_map((xp,yp),angle,img)
     return survey_image_croped
 
-imgshow = cardata_to_mapsurvey(-0.19,0.17,6.25,img)
-plt.figure()
-plt.imshow(imgshow)
-plt.axis('off')
-plt.show()
 
+################ test ###################
+
+def main():
+
+    image = Image.open('surveyed_map.jpg')
+    img = np.array(image)
+
+    imgshow = cardata_to_mapsurvey(-0.19,0.17,6.25,img)
+    plt.figure()
+    plt.imshow(imgshow)
+    plt.axis('off')
+    plt.show()
+
+if __name__ == "__main__":
+    main()
 
 
 
