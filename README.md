@@ -1,3 +1,5 @@
+Python 3.8.10
+
 # AIGS-538-DeepLearning-Project
 
 Planning : 
