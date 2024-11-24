@@ -1,26 +1,17 @@
 import numpy as np 
 from PIL import Image
 from scipy import ndimage
+from tqdm import tqdm
 import pandas as pd
 import os
+import cv2
 import matplotlib.pyplot as plt
 
-############### versions utilisées ###########
-
-# numpy = 1.18.5
-# scipy = 1.4.1
-# matplotlib = 3.2.3
-# pillow = 7.2.0
-# pandas = 1.1.5
-
-###############################################
-
-# version pour image en couleur
-
-image = Image.open('big_surveyed_map_track.jpg')
-img = np.array(image)
+track_image = Image.open('Data/TrackMap/big_surveyed_map.jpg')
+track_img = np.array(track_image)
 dashcam_csv = 'Data/V1 Log.csv'
-costmap_dir = 'Data/Essai'
+dashcam_dir = 'Data/V1 Camera Frames'
+costmap_dir = 'Data/Costmap'
 useful_col = list(range(21))  # Only 21 first columns because we don't need values in the further columns
 df = pd.read_csv(dashcam_csv, usecols=useful_col, header=None, dtype=str) # str type to prevent read_csv to parse 079 in 79 (could be a source of error for a decimal value)
    
@@ -62,39 +53,68 @@ def cardata_to_mapsurvey(xabs,yabs,angle,img):
     survey_image_croped = point_angle_to_map((xp,yp),-angle,img)
     return survey_image_croped
 
+# add contrast to an img
+def contrast_adapter(img, clip_limit, grid_size):
+    img_raw = np.array(img)
+    hsv = cv2.cvtColor(img_raw, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(hsv)
+    # Applying CLAHE to L-channel clipLimit is the quantitative value for contrast and gridSize the size of the grid used to apply contrast on parts of the picture 
+    clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(grid_size,grid_size))
+    cl = clahe.apply(l)
+
+    # merge the CLAHE enhanced L-channel with the a and b channel
+    limg = cv2.merge((cl,a,b))
+
+    # Converting image from LAB Color model to BGR color spcae
+    enhanced_img = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+    
+    return enhanced_img
+
+def generate_costmap(df, img, output_dir):
+    os.makedirs(output_dir, exist_ok=True) # Create costmap directory
+    
+    with tqdm(total = len(df)) as pb:    
+        for index, row in df.iterrows():
+            offset = 0
+            while (int(row.iloc[5+offset]) > 3):    # col 1 to 4 of the csv can have 0 but sometimes its a decimal value so these values can take up to 8 cols
+                offset += 1                         # this creates an offset for the values we're interested in. But the last value before the interesting ones has always more than 1 digit when it's not 0 (luckily) 3 is the limit because the y unit value never exceeds 3 that's how we know if we have to put an offset
+            
+            x_abs = to_float(row.iloc[7+offset], row.iloc[8+offset])
+            y_abs = to_float(row.iloc[5+offset], row.iloc[6+offset])
+            angle = to_float(row.iloc[15+offset], row.iloc[16+offset])
+            
+            costmap = cardata_to_mapsurvey(x_abs, y_abs, angle, img)  # generate costmap
+            image_path = os.path.join(output_dir, f"costmap_{row.iloc[0]}.png")
+            plt.imsave(image_path, costmap)
+            pb.update()
+            
+#add contrast on dashcam img because half of them have too low brightness due to the simulator light settings       
+def enhance_dashcam(dir):
+    
+    dashcams = os.listdir(dir)
+    
+    with tqdm(total = len(dashcams)) as pb:
+        for img in dashcams:
+            img_path = os.path.join(dir, img)
+            dashcam_img = Image.open(img_path)
+            enhanced_img = contrast_adapter(dashcam_img, 12.0, 8)
+            cv2.imwrite(img_path, enhanced_img)
+            pb.update()
+            
+def create_dataset():
+    generate_costmap(df, track_img, costmap_dir)
+    enhance_dashcam(dashcam_dir)
+    
+create_dataset()        
+enhance_dashcam(dashcam_dir)
+
+########### Brouillon ###############
+
 # imgshow = cardata_to_mapsurvey(4.353964,1.94864,5.24789,img)
 # plt.figure()
 # plt.imshow(imgshow)
 # plt.axis('off')
 # plt.show()
-
-def create_dataset(df, img, output_dir):
-    os.makedirs(output_dir, exist_ok=True) # Create costmap directory
-    
-    for index, row in df.iterrows():
-
-        offset = 0
-        while (int(row.iloc[5+offset]) > 3):    # col 1 to 4 of the csv can have 0 but sometimes its a decimal value so these values can take up to 8 cols
-            offset += 1                         # this creates an offset for the values we're interested in. But the last value before the interesting ones has always more than 1 digit when it's not 0 (luckily) 3 is the limit because the y unit value never exceeds 3 that's how we know if we have to put an offset
-        
-        x_abs = to_float(row.iloc[7+offset], row.iloc[8+offset])
-        y_abs = to_float(row.iloc[5+offset], row.iloc[6+offset])
-        angle = to_float(row.iloc[15+offset], row.iloc[16+offset])
-        
-        costmap = cardata_to_mapsurvey(x_abs, y_abs, angle, img)  # generate costmap
-        image_path = os.path.join(output_dir, f"costmap_{row.iloc[0]}.png")
-        plt.imsave(image_path, costmap)
-        print(f"Image sauvegardée dans {image_path}")
-        
-create_dataset(df, img, costmap_dir)
-        
-    
-
-
-
-
-
-########### Brouillon ###############
 
 # angle = -90
 # xp,yp = coordonnes_to_point(-0.19,0.17)
