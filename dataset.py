@@ -7,19 +7,6 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 
-############### versions utilisées ###########
-
-# numpy = 1.18.5
-# scipy = 1.4.1
-# matplotlib = 3.2.3
-# pillow = 7.2.0
-
-###############################################
-
-# version pour image en couleur
-
-
-
 track_image = Image.open('Data/TrackMap/big_surveyed_map.jpg')
 track_img = np.array(track_image)
 dashcam_csv = 'Data/V1 Log.csv'
