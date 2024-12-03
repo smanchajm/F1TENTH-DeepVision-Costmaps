@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
     
     # Définir la loss (L1 Loss) et l'optimiseur
-    model = UNet150(1,1)
+    model = UNet150(1,1,complexity_multiplier=4)
     model.to(device)
     criterion = nn.L1Loss()  # L1 Loss
     optimizer = optim.Adam(model.parameters(), lr=0.001)  # Optimiseur Adam avec un taux d'apprentissage de 0.001
