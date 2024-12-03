@@ -8,7 +8,10 @@ import os
 from PIL import Image
 from tqdm import tqdm
 
+############   Preporcessing ##########
 
+# Le script prend 3-4 min et il fait le preprocessing des images et les enregistre autre part. 
+# Ca permet de pas a avoir à le faire par batch pendant l'entrainement du CNN
 if __name__ == "__main__":
 
     input_path = "C:\\\\Users\\Robin\\Documents\\POSTECH\\Deep Learning theory\\Projet\\dashcam"
