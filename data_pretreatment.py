@@ -17,8 +17,8 @@ if __name__ == "__main__":
     input_path = "C:\\\\Users\\Robin\\Documents\\POSTECH\\Deep Learning theory\\Projet\\dashcam"
     target_path = "C:\\Users\\Robin\\Documents\\POSTECH\\Deep Learning theory\\Projet\\Costmap"
 
-    input_output_path = "Data/Dashcams"
-    target_output_path = "Data/Costmaps"
+    input_output_path = "Data/Dashcams_color"
+    target_output_path = "Data/Costmapsextended"
 
     os.makedirs(input_output_path, exist_ok=True)
     os.makedirs(target_output_path, exist_ok=True)
@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     transform = trsf.Compose([
              # Convertir depuis OpenCV à PIL
-        trsf.Grayscale(num_output_channels=1),  # Convertir en niveaux de gris
+     # Convertir en niveaux de gris
         trsf.Resize((input_width, input_height)), # Downsample
         trsf.ToTensor(), 
         # trsf.Normalize(mean=[0.], std=[1.]),# Convertir en tenseur
