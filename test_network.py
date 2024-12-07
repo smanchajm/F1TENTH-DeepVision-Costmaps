@@ -15,7 +15,6 @@ import wandb
 import cv2
 
 
-
 def identity_initialization(layer):
     """
     Applique l'initialisation identité sur une couche nn.Conv2d.
@@ -36,7 +35,7 @@ def identity_initialization(layer):
         if layer.bias is not None:
             nn.init.constant_(layer.bias, 0)
 
-
+# %%
 class ImageToImageDataset(Dataset):
     def __init__(self, input_folder, target_folder, transform_input=None, transform_target=None,threshold = 30,filter_size = 26):
         self.input_folder = input_folder
@@ -54,11 +53,12 @@ class ImageToImageDataset(Dataset):
     def __getitem__(self, idx):
         # Charger l'image d'entrée
         input_path = os.path.join(self.input_folder, self.input_files[idx])
-        input_image = cv2.imread(input_path, cv2.IMREAD_GRAYSCALE)  # Charger en niveaux de gris
-        
+        input_image = cv2.imread(input_path,cv2.IMREAD_GRAYSCALE)  # Charger en niveaux de gris
+        # print(np.mean(input_image))
         # Charger l'image cible
         target_path = os.path.join(self.target_folder, self.target_files[idx])
         target_image = cv2.imread(target_path, cv2.IMREAD_GRAYSCALE)
+        # print(np.mean(target_image))
 
         # Générer le masque avec OpenCV (dilatation)
         _, binary_image = cv2.threshold(target_image, self.threshold, 255, cv2.THRESH_BINARY_INV)
@@ -67,12 +67,12 @@ class ImageToImageDataset(Dataset):
         # mask = (dilated_image == 0).astype('float32')  # Générer le masque binaire (0 = noir, 1 = blanc)
 
         # Appliquer les transformations si disponibles
-        if self.transform_input:
-            input_image = self.transform_input(Image.fromarray(input_image))
-        if self.transform_target:
-            target_image = self.transform_target(target_image)
+        # if self.transform_input:
+        #     # input_image = self.transform_input(torch.from_numpy(input_image/255))
+        # if self.transform_target:
+        #     # target_image = self.transform_target(torch.from_numpy(target_image/255))
 
-        return input_image, target_image, torch.from_numpy(mask).unsqueeze(0)
+        return torch.from_numpy(input_image/255).unsqueeze(0).to(torch.float32), torch.from_numpy(target_image/255).unsqueeze(0).to(torch.float32), torch.from_numpy(mask).unsqueeze(0)
 # %%
 
 
@@ -110,7 +110,7 @@ class ContextNetwork(nn.Module):
             if i < len(dilation_factors) - 1:  # Troncature max(·, 0) sauf pour la dernière couche
                 layers.append(nn.ReLU(inplace=True))
         
-        self.context_module = nn.Sequential(*layers)
+        self.context_module = nn.Sequential(*layers,nn.Sigmoid())
     
     def forward(self, x):
         return self.context_module(x)
@@ -121,7 +121,7 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    model = ContextNetwork(1,1,outputchannels=[1,1,1,1,1,1,1,1,1])
+    model =  ContextNetwork(1,1,[1,1,1,1,1,1,1,1,1])
     model.load_state_dict(torch.load("params1.pth",map_location=torch.device('cpu')))
 
 
@@ -152,9 +152,10 @@ if __name__ == "__main__":
     out = model(batch_inputs)
     plt.figure(figsize=(10, 5))
 
-    # afficher la première paire
+    # afficher la première pair
+    print(out[0].squeeze().detach())
     plt.subplot(2, 2, 1)
-    plt.imshow(out[0].squeeze().detach(), cmap='gray')  # input 1
+    plt.imshow(out[0].squeeze().detach())  # input 1
     plt.title("input 1")
     plt.axis('off')
 

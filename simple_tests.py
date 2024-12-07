@@ -13,7 +13,7 @@ import matplotlib
 import torch.optim as optim
 import wandb
 import cv2
-
+from torchsummary import summary
 
 
 def identity_initialization(layer):
@@ -55,11 +55,11 @@ class ImageToImageDataset(Dataset):
         # Charger l'image d'entrée
         input_path = os.path.join(self.input_folder, self.input_files[idx])
         input_image = cv2.imread(input_path,cv2.IMREAD_GRAYSCALE)  # Charger en niveaux de gris
-        # print(np.mean(input_image))
+        print(np.mean(input_image))
         # Charger l'image cible
         target_path = os.path.join(self.target_folder, self.target_files[idx])
         target_image = cv2.imread(target_path, cv2.IMREAD_GRAYSCALE)
-        # print(np.mean(target_image))
+        print(np.mean(target_image))
 
         # Générer le masque avec OpenCV (dilatation)
         _, binary_image = cv2.threshold(target_image, self.threshold, 255, cv2.THRESH_BINARY_INV)
@@ -74,6 +74,7 @@ class ImageToImageDataset(Dataset):
         #     # target_image = self.transform_target(torch.from_numpy(target_image/255))
 
         return torch.from_numpy(input_image/255).unsqueeze(0).to(torch.float32), torch.from_numpy(target_image/255).unsqueeze(0).to(torch.float32), torch.from_numpy(mask).unsqueeze(0)
+
 # %%
 
 
@@ -112,9 +113,10 @@ class ContextNetwork(nn.Module):
                 layers.append(nn.ReLU(inplace=True))
         
         self.context_module = nn.Sequential(*layers,nn.Sigmoid())
-    
+                                               
     def forward(self, x):
         return self.context_module(x)
+    
 
 
 
@@ -126,18 +128,13 @@ if __name__ == "__main__":
         project="F1TENTH"
     )
 
-    BATCH_SIZE =1
+    BATCH_SIZE = 17
     mean = 0.2335
     std = 0.1712
     transform_input = trsf.Compose([
-        trsf.ToPILImage(),
-        trsf.ToTensor(),
         trsf.Normalize(mean=mean,std=std)
     ])
-    transform_output = trsf.Compose([
-        trsf.ToPILImage(),
-        trsf.ToTensor()
-    ])
+    transform_output = trsf.Compose([])
 
     dataset = ImageToImageDataset(
         input_folder="Data\\Dashcams",
@@ -148,102 +145,35 @@ if __name__ == "__main__":
         filter_size=50
 
     )
-    data_loader = DataLoader(dataset=dataset,batch_size=BATCH_SIZE,shuffle=True)
+    data_loader = DataLoader(dataset=dataset,batch_size=BATCH_SIZE,shuffle=False)
+
+    first_input, first_traget,first_mask = next(iter(data_loader))
+    first_input = first_input[-1,:,:,:]
+    first_traget = first_traget[-1,:,:,:]
+    crit = nn.L1Loss()
+    model = ContextNetwork(1,1,outputchannels=[1,1,1,1,1,1,1,1,1])
+    opti = optim.Adam(model.parameters(),lr=0.001)
 
 
-    # batch_inputs, batch_targets,masks = next(iter(data_loader))
-
-    # plt.figure(figsize=(10, 5))
-
-    # # afficher la première paire
-    # plt.subplot(2, 2, 1)
-    # plt.imshow(batch_inputs[0].squeeze(), cmap='gray')  # input 1
-    # plt.title("input 1")
-    # plt.axis('off')
-
-    # plt.subplot(2, 2, 2)
-    # plt.imshow(batch_targets[0].squeeze(), cmap='gray')  # target 1
-    # plt.title("target 1")
-    # plt.axis('off')
-
-    # # afficher la deuxième paire
-    # plt.subplot(2, 2, 3)
-    # plt.imshow(masks[0].squeeze())  # input 2
-    # plt.title("input 2")
-    # plt.axis('off')
-
-    # plt.subplot(2, 2, 4)
-    # plt.imshow(batch_1argets[1].squeeze(), cmap='gray')  # target 2
-    # plt.title("target 2")
-    # plt.axis('off')
-
-    # plt.tight_layout()
-    # plt.show()
-    
-    
-    # Définir la loss (L1 Loss) et l'optimiseur
-    model = ContextNetwork(1,1,[1,1,1,1,1,1,1,1,1])
-    model.to(device)
-    criterion = nn.L1Loss()  # L1 Loss
-    optimizer = optim.Adam(model.parameters(), lr=0.001)  # Optimiseur Adam avec un taux d'apprentissage de 0.001
-
-    # Entraînement
-    num_epochs = 3
-    # model.train()
-    
-
-    for epoch in range(num_epochs):
-        print(f"[INFO] Début de l'époche {epoch}")
-        running_loss = 0.0
-        i = 0
-        for batch_inputs, batch_targets,masks in tqdm(data_loader):
-            # Mettre à jour les gradients à 0
-            optimizer.zero_grad()
-            
-            # Passer les données dans le modèle
-            s1 = time()
-            # batch_inputs = batch_inputs.to(device)
-            # batch_targets = batch_targets.to(device)
-            # print(batch_inputs.shape)
-            # masks = masks.to(device)
-            outputs = model(batch_inputs)
-
-            # print(outputs.shape)
-            # print(masks.shape)
-            # print(batch_targets.shape)
-            e1 = time()
-            # print(f"temps de la forward pass {e1-s1:.6f}")
-            
-            
-            # Calculer la perte
-            i2 = time()
-
-
-
-            masked_loss = criterion(outputs, batch_targets)
-            
-
-            i1 = time() 
-            # Backpropagation
-            masked_loss.backward()
-            s2 = time()
-            # Optimisation
-            optimizer.step()
-            e2 = time()
-            # print(f"temps du calcul de la loss {i1-i2:.6f}")
-            # print(f"temps du optimizer step {e2-s2:.6f}")
-            # print(f"temps du backward {s2-i1:.6f}")
-            # Accumuler la perte
-            running_loss += masked_loss.item()
-            wandb.log({"loss":masked_loss.item()})
+    for i in tqdm(range(2200)):
         
-        # Afficher la perte moyenne par époque
-        print(f"Époque [{epoch + 1}/{num_epochs}], Perte moyenne : {running_loss / len(data_loader):.4f}")
+        opti.zero_grad()
+        output = model(first_input.unsqueeze(0))
+        loss = crit(output,first_traget.unsqueeze(0))
+        loss.backward()
+        opti.step()
+        wandb.log({"loss":loss.item()})
 
-    torch.save(model.state_dict(),"params1.pth")
-
-    print("Entraînement terminé !")
-
-
-
-# %%
+    plt.figure()
+    plt.subplot(1,3,(1))
+    plt.imshow(model(first_input.unsqueeze(0)).squeeze().detach(),cmap="gray")
+    plt.subplot(1,3,(2))
+    plt.imshow(first_traget.squeeze().detach(),cmap="gray")
+    plt.subplot(1,3,3)
+    plt.imshow(first_input.squeeze().detach(),cmap="gray")
+    plt.show()
+    # print(torch.mean(model(first_input.unsqueeze(0)).squeeze().detach()))
+    # print(torch.mean(first_input))
+    # print(model(first_input).squeeze().detach())
+    # print(torch.mean(first_traget.squeeze().detach()))
+    summary(model,input_size = (1,150,150))
