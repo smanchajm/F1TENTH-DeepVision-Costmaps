@@ -1,56 +1,72 @@
-# F1TENTH Dashcam to Costmap Translation
+# F1TENTH DeepVision Costmaps
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-1.9+-red.svg)](https://pytorch.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.8+-red.svg)](https://pytorch.org/)
 
-Deep learning models for translating F1TENTH dashcam images to navigation costmaps using neural networks.
+Deep learning approach to autonomous racing using computer vision for F1TENTH platform. This project implements a U-Net-based neural network for real-time eagle view costmap prediction from dashcam front images, enabling high-speed navigation through vision-based perception on a already known circuit.
 
-## 🎯 Project Overview
+## Overview
 
-This project implements **image-to-image translation** models that convert dashcam images from F1TENTH autonomous racing cars into costmaps for navigation. The models learn to identify safe and unsafe areas from visual input, enabling autonomous navigation in racing environments.
+This project presents a vision-based approach to autonomous racing that combines deep learning with Model Predictive Path Integral (MPPI) control. The system transforms monocular dashcam images into navigation costmaps using a U-Net architecture, providing a cost-effective alternative to expensive sensor setups like LiDAR.
 
-### Key Features
+![Processing Pipeline](report/pipeline.png)
+*Complete processing pipeline: Dashcam input → U-Net costmap generation → MPPI trajectory optimization*
 
-- **Two Neural Network Architectures**: U-Net and Context Network implementations
-- **150×150 Resolution**: Optimized for real-time performance
-- **Identity Initialization**: Advanced weight initialization for stable training
-- **Morphological Preprocessing**: Enhanced data processing pipeline
-- **W&B Integration**: Experiment tracking and visualization
+### Key Components
 
-## 🏁 Models
+- **U-Net Model**: Convolutional neural network for dashcam-to-costmap translation
+- **Context Network**: Alternative dilated convolution architecture
+- **Dataset**: Generated using AutoDrive Simulator with data augmentation
+- **Control**: MPPI integration for trajectory optimization from costmaps
+
+## Method
+
+### U-Net Architecture
+
+The U-Net model predicts costmaps from 150×150 dashcam images in real-time:
+
+- **Contracting Path**: Reduces spatial dimensions (16, 32 filters) with max-pooling
+- **Bottleneck**: Feature extraction with 64-filter convolutional layers
+- **Expanding Path**: Restores resolution via transpose convolutions and skip connections
+- **Output**: Single convolution transforms features into costmaps
+
+Training uses supervised learning with Mean Squared Error (MSE) loss.
+
+### MPPI Control Strategy
+
+Model Predictive Path Integral generates optimal trajectories from predicted costmaps:
+- 200 candidate trajectories per costmap
+- 50 points per trajectory with 30° steering limit
+- Selects trajectory minimizing cost in low-cost regions
+
+![MPPI Trajectory Selection](report/mppi.png)
+*MPPI algorithm generating candidate trajectories and selecting the optimal path (red line)*
+
+## Models
 
 ### UNet150
 - **Architecture**: Encoder-decoder with skip connections
-- **Specialization**: Spatial feature preservation
+- **Input/Output**: 150×150 grayscale images
 - **Parameters**: ~270K (complexity_multiplier=4)
+- **Specialization**: Spatial detail preservation
 
 ### Context Network
 - **Architecture**: Dilated convolutions with identity initialization
-- **Specialization**: Multi-scale context capture
+- **Dilation factors**: [1,1,1,2,4,8,16,32,1]
 - **Parameters**: ~47K
+- **Specialization**: Multi-scale context understanding
 
-## 🚀 Quick Start
-
-### Installation
+## Installation
 
 ```bash
-git clone https://github.com/your-username/f1tenth-costmap-translation.git
-cd f1tenth-costmap-translation
+git clone https://github.com/your-username/f1tenth-deepvision-costmaps.git
+cd f1tenth-deepvision-costmaps
 pip install -r requirements.txt
 ```
 
-### Data Structure
+## Usage
 
-Organize your data as follows:
-```
-Data/
-├── Dashcams/          # Input dashcam images (150×150)
-├── Costmaps/          # Target costmap images (150×150)
-└── TrackMap/          # Track maps for costmap generation
-```
-
-### Training
+### Training Models
 
 Train the U-Net model:
 ```bash
@@ -64,129 +80,72 @@ python scripts/train_context.py
 
 ### Evaluation
 
-Evaluate trained models and generate visualizations:
+Evaluate trained models:
 ```bash
 python scripts/evaluate.py
 ```
 
-### Demo
+### Interactive Demo
 
-Explore the interactive demo notebook:
+Explore results in Jupyter:
 ```bash
 jupyter notebook notebooks/demo.ipynb
 ```
 
-## 📊 Results
+## Results
 
-The models achieve effective costmap generation for F1TENTH navigation:
+### Training Performance
 
-- **U-Net**: Excellent spatial detail preservation with skip connections
-- **Context Network**: Efficient multi-scale context understanding
-- **Training Time**: ~15 minutes per epoch on modern GPU
-- **Inference Speed**: Real-time capable for autonomous racing
+The U-Net model shows effective learning with consistent training loss decrease. Validation curves indicate some overfitting, suggesting need for regularization or additional data.
 
-## 🏗️ Project Structure
+### Costmap Generation
+
+The model successfully generates costmaps from dashcam images, matching ground truth with room for improvement in edge definition:
+
+![Model Output Comparison](report/output_comparison.jpg)
+*Left: Predicted costmap, Middle: Ground truth costmap, Right: Original dashcam input*
+
+- **U-Net**: Excellent spatial preservation with skip connections
+- **Context Network**: Efficient multi-scale context capture
+- **Training Time**: ~15 minutes per epoch on GPU
+- **Inference**: Real-time capable for racing applications
+
+## Dataset
+
+Data generated using [AutoDrive Simulator](https://autodrive-ecosystem.github.io/competitions/f1tenth-sim-racing-cdc-2024/) for F1TENTH racing simulation with:
+- Monocular dashcam images (150×150)
+- Corresponding bird's-eye view costmaps
+- Data augmentation (brightness, cropping)
+- Track maps for spatial reference
+
+The AutoDrive platform provides realistic F1TENTH vehicle dynamics and racing environments, enabling comprehensive dataset generation for vision-based autonomous racing research.
+
+### Data Structure
 
 ```
-f1tenth-costmap-translation/
-├── src/
-│   ├── models/              # Neural network architectures
-│   │   ├── unet.py         # U-Net implementation
-│   │   └── context_net.py  # Context Network implementation
-│   ├── data/               # Dataset and preprocessing
-│   │   ├── dataset.py      # PyTorch dataset classes
-│   │   └── preprocessing.py # Data processing utilities
-│   └── utils/              # Training utilities
-│       └── training.py     # Helper functions
-├── scripts/                # Executable scripts
-│   ├── train_unet.py      # U-Net training
-│   ├── train_context.py   # Context Network training
-│   └── evaluate.py        # Model evaluation
-├── notebooks/             # Jupyter demonstrations
-│   └── demo.ipynb        # Interactive demo
-├── models/               # Saved model checkpoints
-└── Data/                # Dataset directory
+Data/
+├── Dashcams/          # Input dashcam images (not included in repo)
+├── Costmaps/          # Target costmap images (not included in repo)
+└── TrackMap/          # F1TENTH circuit maps
 ```
 
-## 🔬 Technical Details
+**Note**: The input dashcam images and target costmap datasets are not included in this repository to avoid excessive file size. Only the circuit maps and trained models are provided. The dataset can be regenerated using the AutoDrive Simulator following the methodology described in the report.
 
-### Architecture Highlights
+## Technical Details
 
-**U-Net150**:
-- Encoder: 2 downsampling blocks with MaxPool2d
-- Decoder: 2 upsampling blocks with ConvTranspose2d
-- Skip connections preserve spatial information
-- Double convolution blocks with ReLU activation
-
-**Context Network**:
-- Dilated convolutions: [1,1,1,2,4,8,16,32,1] dilation factors
-- Identity initialization for training stability
-- Progressive channel expansion: [48,64,128,32,32,32,32,32,1]
-- Sigmoid output activation
-
-### Training Configuration
-
-- **Loss Function**: L1Loss for sharp boundaries
+- **Framework**: PyTorch for neural networks, NumPy for MPPI
+- **Loss Function**: L1Loss for sharp costmap boundaries
 - **Optimizer**: Adam (lr=0.001)
-- **Batch Size**: 5 (U-Net), 1 (Context Network)
-- **Input Normalization**: mean=0.2335, std=0.1712
 - **Device**: Automatic CUDA/CPU detection
+- **Image Size**: 150×150 optimized for real-time performance
 
-## 📈 Performance
+## Future Work
 
-| Model | Parameters | L1 Loss | Training Speed | Memory Usage |
-|-------|------------|---------|----------------|--------------|
-| U-Net | ~270K | 0.125 | Fast | Moderate |
-| Context Net | ~47K | 0.138 | Very Fast | Low |
-
-## 🔧 Advanced Usage
-
-### Custom Training
-
-Modify hyperparameters in the training scripts:
-
-```python
-# In scripts/train_unet.py
-BATCH_SIZE = 8
-NUM_EPOCHS = 10
-LEARNING_RATE = 0.0005
-```
-
-### Model Export
-
-Save models for deployment:
-
-```python
-from src.utils import save_model
-save_model(model, "path/to/model.pth", epoch=current_epoch)
-```
-
-## 🤝 Contributing
-
-This project was developed as part of the AIGS-538 Deep Learning course. The codebase has been refactored for clarity and professional presentation.
-
-## 📜 Citation
-
-```bibtex
-@misc{f1tenth2024,
-  title={F1TENTH Dashcam to Costmap Translation using Deep Learning},
-  author={AIGS-538 Deep Learning Project},
-  year={2024},
-  note={Image-to-image translation for autonomous racing navigation}
-}
-```
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🏆 Acknowledgments
-
-- F1TENTH autonomous racing community
-- PyTorch deep learning framework
-- Weights & Biases for experiment tracking
-- AIGS-538 Deep Learning course at [University Name]
+- Reduce overfitting through regularization
+- Optimize inference time for real-time deployment
+- Integration with F1TENTH hardware platform
+- Extended testing in complex racing environments
 
 ---
 
-⚡ **Ready to race autonomously with computer vision!** 🏎️
+*Developed as part of POSTECH AIGS-538 Deep Learning course*
